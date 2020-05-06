@@ -1,6 +1,9 @@
 from flask import Flask, request
 from flask_ngrok import run_with_ngrok
+from bs4 import BeautifulSoup
+from random import randint
 import logging
+import requests
 import json
 
 
@@ -15,8 +18,7 @@ def main():
         'session': request.json['session'],
         'version': request.json['version'],
         'response': {
-            'end_session': False,
-            "work_session": False,
+            'end_session': False
         }
     }
     handle_dialog(request.json, response)
@@ -24,61 +26,42 @@ def main():
     return json.dumps(response)
 
 
-proof_describe = False
-proof_describe1 = False
-proof_describe2 = False
-proof_describe3 = False
-proof_describe4 = False
+stage = 0
 work = False
-address1 = ""
-address2 = ""
-time = 0
+coords1 = False
+coords2 = False
+type = False
+time = False
 transport = ""
+universal_buttons = ['помощь']
+yes_buttons = ['да', 'ок', 'давай', 'ладно', 'хорошо', 'го']
+question_buttons = ['изменить']
 
 
 def handle_dialog(req, res):
-    global proof_describe, proof_describe1, proof_describe2, proof_describe3, proof_describe4, address1, \
-        address2, time, transport, work
+    global address1, address2, time, transport, work, stage
     user_id = req['session']['user_id']
     if req['session']['new']:
-        sessionStorage[user_id] = {
-            'suggests': [
-                "Начать",
-                "Изменить",
-                "Выйти",
-                "Помощь",
-                "Отменить"
-            ]
-        }
-        res['response']['text'] = '\"Начать\" - начать использование программы. ' \
-                                  '\"Изменить\" - обнуление и замена данных. ' \
-                                  '\"Выйти\" - прекратить использование программы. ' \
-                                  '\"Отменить\" - если вы вводите данные, чтобы прекратить ввод. '
-        res['response']['buttons'] = get_suggests(user_id)
+        res['response']['text'] = 'Здравствуйте, заведём будильник?'
+        res['response']['buttons'] = get_buttons(universal_buttons, yes_buttons)
         return
 
-    if (req['request']['original_utterance'].lower().strip() == "начать" and not proof_describe and
-            (not proof_describe4 and not proof_describe1 and not proof_describe2 and not proof_describe3)):
-        res['response']['text'] = "Сначала впишите нужные данные. " \
-                                  "Откуда вы собираетесь отправляться? " \
-                                  "Пишите через пробел: <город> <улица> <здание>. " \
-                                  "Например: \"Саратов Московская 143\". "\
-                                  "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить\"(все данные обнулятся). "
-        res['response']['buttons'] = get_suggests(user_id)
-        proof_describe1 = True
+    if req['request']['original_utterance'].lower().strip() in yes_buttons and stage == 0:
+        res['response']['text'] = 'Откуда вы собираетесь отправляться?' \
+                                  'Пишите через пробел: <улица> <здание> <город>.' \
+                                  'Например: \"Московская 143 Саратов\".'
+        res['response']['buttons'] = get_buttons(universal_buttons, question_buttons)
+        stage += 1
         return
 
-    elif proof_describe1 and not proof_describe2 and len(req['request']['original_utterance'].split()) == 3:
+    if stage == 1 and coords1:
         address1 = req['request']['original_utterance'].strip()
-        res['response']['text'] = "Впишите нужные данные. " \
-                                  "Куда вы собираетесь отправляться? " \
-                                  "Пишите через пробел: <город> <улица> <здание>. " \
-                                  "Например: \"Саратов Московская 143\". "\
-                                  "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить\"(все данные обнулятся). "
+        res['response']['text'] = 'Куда вы собираетесь отправляться?' \
+                                  'Пишите через пробел: <улица> <здание> <город>.' \
+                                  'Например: \"Саратов Московская 143\".'
         res['response']['buttons'] = get_suggests(user_id)
         proof_describe2 = True
+        stage += 1
 
     elif proof_describe2 and not proof_describe3 and len(req['request']['original_utterance'].split()) == 3:
         address2 = req['request']['original_utterance'].strip()
@@ -180,9 +163,32 @@ def get_suggests(user_id):
     session = sessionStorage[user_id]
     suggests = [
         {'title': suggest, 'hide': True}
-        for suggest in session['suggests'][:5]
+        for suggest in session['suggests']
     ]
     return suggests
+
+
+def get_buttons(univ, cur):
+    suggests = [
+        {'title': suggest, 'hide': False}
+        for suggest in list(map(lambda x: x[0].upper() + x[1:], univ + [cur[randint(0, len(cur) - 1)]]))
+    ]
+    return suggests
+
+
+def existing_object(adress):
+    global coords1
+    try:
+        url = 'http://geocode-maps.yandex.ru/1.x?'
+        params = {'geocode': ','.join([ ''.join(adress[:2]), adress[2]]),
+                  'apikey': '40d1649f-0493-4b70-98ba-98533de7710b',
+                  'format': 'json'
+                  }
+        response = requests.get(url, params=params).json()
+        ans = response['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos'].split()
+        return ans
+    except Exception:
+        return None
 
 
 if __name__ == '__main__':
