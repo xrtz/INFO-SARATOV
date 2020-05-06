@@ -14,10 +14,7 @@ def main():
     response = {
         'session': request.json['session'],
         'version': request.json['version'],
-        'response': {
-            'end_session': False,
-            "work_session": False,
-        }
+        'response': {}
     }
     handle_dialog(request.json, response)
     logging.info(f'Response:  {response!r}')
@@ -29,42 +26,39 @@ proof_describe1 = False
 proof_describe2 = False
 proof_describe3 = False
 proof_describe4 = False
+proof_describe5 = False
 work = False
 address1 = ""
 address2 = ""
-time = 0
+time_to_pack = 0
+time = ""
 transport = ""
 
 
 def handle_dialog(req, res):
     global proof_describe, proof_describe1, proof_describe2, proof_describe3, proof_describe4, address1, \
-        address2, time, transport, work
+        address2, time_to_pack, transport, work, time, proof_describe5
     user_id = req['session']['user_id']
     if req['session']['new']:
-        sessionStorage[user_id] = {
-            'suggests': [
-                "Начать",
-                "Изменить",
-                "Выйти",
-                "Помощь",
-                "Отменить"
-            ]
-        }
-        res['response']['text'] = '\"Начать\" - начать использование программы. ' \
+        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Помощь"]}
+        res['response']['text'] = '\"Включить будильник\" - начать использование программы. ' \
                                   '\"Изменить\" - обнуление и замена данных. ' \
-                                  '\"Выйти\" - прекратить использование программы. ' \
-                                  '\"Отменить\" - если вы вводите данные, чтобы прекратить ввод. '
+                                  '\"Выключить будильник\" - прекратить использование программы. ' \
+                                  '\"Отменить ввод\" - если вы вводите данные, чтобы прекратить ввод. '
         res['response']['buttons'] = get_suggests(user_id)
         return
-
-    if (req['request']['original_utterance'].lower().strip() == "начать" and not proof_describe and
-            (not proof_describe4 and not proof_describe1 and not proof_describe2 and not proof_describe3)):
+# sessionStorage[user_id] = {'suggests': ["Включить будильник", "Изменить", "Выключить будильник",
+#                                             "Помощь", "Отменить ввод"]}
+    if (req['request']['original_utterance'].lower().strip() == "включить будильник" and not proof_describe and
+            (not proof_describe4 and not proof_describe1 and not proof_describe2 and not proof_describe3 and
+             not proof_describe5)):
         res['response']['text'] = "Сначала впишите нужные данные. " \
                                   "Откуда вы собираетесь отправляться? " \
                                   "Пишите через пробел: <город> <улица> <здание>. " \
                                   "Например: \"Саратов Московская 143\". "\
                                   "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить\"(все данные обнулятся). "
+                                  "напишите \"Отменить ввод\"(все данные обнулятся). "
+        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
         res['response']['buttons'] = get_suggests(user_id)
         proof_describe1 = True
         return
@@ -76,7 +70,8 @@ def handle_dialog(req, res):
                                   "Пишите через пробел: <город> <улица> <здание>. " \
                                   "Например: \"Саратов Московская 143\". "\
                                   "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить\"(все данные обнулятся). "
+                                  "напишите \"Отменить ввод\"(все данные обнулятся). "
+        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
         res['response']['buttons'] = get_suggests(user_id)
         proof_describe2 = True
 
@@ -88,90 +83,121 @@ def handle_dialog(req, res):
                                   "Пишите в минутах. " \
                                   "Например: \"5\". " \
                                   "Если хотите прекратить ввод данных " \
-                                  "напишите \"Отменить\"(все данные обнулятся). "
+                                  "напишите \"Отменить ввод\"(все данные обнулятся). "
+        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
         res['response']['buttons'] = get_suggests(user_id)
         return
 
-    elif (proof_describe3 and not proof_describe4 and len(req['request']['original_utterance'].split()) == 1 and
-            req['request']['original_utterance'].lower().strip() != "отменить"):
-        time = req['request']['original_utterance'].strip()
+    elif proof_describe3 and not proof_describe4 and len(req['request']['original_utterance'].split()) == 1:
+        time_to_pack = req['request']['original_utterance'].strip()
         proof_describe4 = True
+        res['response']['text'] = "Впишите нужные данные. " \
+                                  "Во сколько вам надо прибыть? " \
+                                  "Напишите точное время, например: \"8:00\". " \
+                                  "Если хотите прекратить ввод данных " \
+                                  "напишите \"Отменить ввод\"(все данные обнулятся)."
+        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
+        res['response']['buttons'] = get_suggests(user_id)
+        return
+
+    elif proof_describe4 and not proof_describe5 and len(req['request']['original_utterance'].split()) == 1:
+        time = req['request']['original_utterance'].strip()
+        proof_describe5 = True
         res['response']['text'] = "Впишите нужные данные. " \
                                   "Какой способ передвижения вы выберете? " \
                                   "Выберете любой из предложенных: велосипед, пешком, " \
                                   "машина, общественный транспорт, такси. " \
                                   "Например: \"общественный транспорт\". " \
                                   "Если хотите прекратить ввод данных " \
-                                  "напишите \"Отменить\"(все данные обнулятся)."
+                                  "напишите \"Отменить ввод\"(все данные обнулятся)."
+        sessionStorage[user_id] = {'suggests': ["Машина", "Общественный транспорт", "Такси", "Пешком",
+                                                "Велосипед", "Помощь", "Отменить ввод"]}
         res['response']['buttons'] = get_suggests(user_id)
         return
 
-    elif (proof_describe4 and not transport and req['request']['original_utterance'].lower() in
+    elif (proof_describe5 and not transport and req['request']['original_utterance'].lower() in
           ["машина", "общественный транспорт", "такси", "пешком", "велосипед"]):
         transport = req['request']['original_utterance'].strip()
-        res['response']['text'] = "Мы приняли." \
+        res['response']['text'] = "Будильник включен. Мы приняли. " \
                                   f"Откуда: {address1}. " \
                                   f"Куда: {address2}. " \
-                                  f"Время на сборы: {time}. " \
+                                  f"Время на сборы: {time_to_pack}. " \
+                                  f"Время прибытия: {time}. " \
                                   f"Способ передвижения: {transport}. "
+        sessionStorage[user_id] = {'suggests': ["Изменить", "Выключить будильник", "Помощь"]}
         res['response']['buttons'] = get_suggests(user_id)
         proof_describe = True
         work = True
         return
 
     elif req['request']['original_utterance'].strip().lower() == "изменить":
-        res['response']['text'] = 'Ваши данные обнулились .' \
-                                  "Впишите нужные данные ." \
+        res['response']['text'] = 'Ваши данные обнулились, будильник выключен. ' \
+                                  'После того как вы заполните все пунткы, будильник автоматически включится. ' \
+                                  "Впишите нужные данные. " \
                                   "Откуда вы собираетесь отправляться? " \
                                   "Пишите через пробел: <город> <улица> <здание>. " \
                                   "Например: \"Саратов Московская 143\". " \
                                   "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить\"(все данные обнулятся)."
+                                  "напишите \"Отменить ввод\"(все данные обнулятся)."
         work = False
         proof_describe = False
         proof_describe1 = True
         proof_describe2 = False
         proof_describe3 = False
         proof_describe4 = False
+        proof_describe5 = False
         transport = ""
+        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
         res['response']['buttons'] = get_suggests(user_id)
         return
 
-    elif req['request']['original_utterance'].lower().strip() == "начать" and not work and proof_describe:
-        res['response']['text'] = "Хорошо"
+    elif req['request']['original_utterance'].lower().strip() == "включить будильник" and proof_describe:
+        if not work:
+            res['response']['text'] = "Хорошо"
+        else:
+            res['response']['text'] = "Уже рабоатет!"
+        work = True
+        sessionStorage[user_id] = {'suggests': ["Изменить", "Выключить будильник", "Помощь"]}
         res['response']['buttons'] = get_suggests(user_id)
         return
 
-    elif req['request']['original_utterance'].lower().strip() == "начать" and work and proof_describe:
-        res['response']['text'] = "Уже рабоатет!"
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-
-    elif req['request']['original_utterance'].lower().strip() == "отменить" and proof_describe1 and not transport:
-        res['response']['text'] = "Хорошо."
+    elif req['request']['original_utterance'].lower().strip() == "отменить ввод" and proof_describe1 and not transport:
+        res['response']['text'] = "Хорошо. " \
+                                  '\"Включить будильник\" - начать использование программы. ' \
+                                  '\"Изменить\" - обнуление и замена данных. ' \
+                                  '\"Выключить будильник\" - прекратить использование программы. ' \
+                                  '\"Отменить ввод\" - если вы вводите данные, чтобы прекратить ввод. '
         proof_describe = False
         proof_describe1 = False
         proof_describe2 = False
         proof_describe3 = False
         proof_describe4 = False
+        proof_describe5 = False
+        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Помощь"]}
         res['response']['buttons'] = get_suggests(user_id)
         return
 
     elif req['request']['original_utterance'].lower().strip() == "помощь":
-        res['response']['text'] = '\"Начать\" - начать использование программы. ' \
+        res['response']['text'] = '\"Включить будильник\" - начать использование программы. ' \
                                   '\"Изменить\" - обнуление и замена данных. ' \
-                                  '\"Выйти\" - прекратить использование программы. ' \
-                                  '\"Отменить\" - если вы вводите данные, чтобы прекратить ввод. '
+                                  '\"Выключить будильник\" - прекратить использование программы. ' \
+                                  '\"Отменить ввод\" - если вы вводите данные, чтобы прекратить ввод. '
+        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Изменить", "Выключить будильник",
+                                                "Помощь", "Отменить ввод"]}
         res['response']['buttons'] = get_suggests(user_id)
         return
-
-    elif req['request']['original_utterance'].lower().strip() == "выйти" and proof_describe:
-        res['response']['text'] = "До свидания!"
+    elif req['request']['original_utterance'].lower().strip() == "выключить будильник":
+        if work:
+            res['response']['text'] = "Будильник выключен!"
+        else:
+            res['response']['text'] = "Будильник уже выключен!"
+        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Изменить", "Помощь"]}
         res['response']['buttons'] = get_suggests(user_id)
         work = False
         return
     else:
-        res['response']['text'] = "Извините, мы вас не поняли"
+        res['response']['text'] = "Извините, мы вас не поняли, нажмите \"Помошь\" если что-то не понятно"
+        sessionStorage[user_id] = {'suggests': ["Помощь"]}
         res['response']['buttons'] = get_suggests(user_id)
         return
 
@@ -180,7 +206,7 @@ def get_suggests(user_id):
     session = sessionStorage[user_id]
     suggests = [
         {'title': suggest, 'hide': True}
-        for suggest in session['suggests'][:5]
+        for suggest in session['suggests'][:7]
     ]
     return suggests
 
