@@ -5,6 +5,7 @@ from random import randint
 import logging
 import requests
 import json
+import datetime
 
 
 app = Flask(__name__)
@@ -31,37 +32,147 @@ work = False
 coords1 = False
 coords2 = False
 type = False
+delay = False
 time = False
-transport = ""
-universal_buttons = ['помощь']
-yes_buttons = ['да', 'ок', 'давай', 'ладно', 'хорошо', 'го']
-question_buttons = ['изменить']
+TRANSLATOR = {'пешком': 'pd', 'велосипед': 'bc', 'на велосипеде': 'bc',
+              'общественный транспорт': 'mt', 'на общественном транспорте': 'mt',
+              'машина': 'auto', 'на машине': 'auto', 'такси': 'taxi', 'на такси': 'taxi'}
+TRANSPORT = ['пешком', 'велосипед', 'на велосипеде', 'общественный транспорт',
+             'на общественном транспорте', 'машина', 'на машине', 'такси', 'на такси']
+UNIVERSAL_BUTTONS = ['помощь']
+YES_BUTTONS = ['да', 'ок', 'давай', 'ладно', 'хорошо', 'го']
+QUESTION_BUTTONS = ['изменить']
+HELP = 'Это приложение \'Умный будильник\', вам осталось только вбить данные, а будильник сам' \
+       ' позаботится о продолжительности вашего сна. Если вы уже его завели, то ждите, когда ' \
+       'он прозвенит, или отмените. Будильник предназначен для поездок внутри населённого пункта. '
+CHANGE = 'Все данные, что вы ввели обнулились. Начнём опрос сначала. '
+DONTUNDERSTAND = 'Извините, мы вас не поняли. '
+MESSAGE0 = 'Давайте заведём будильник.'
+MESSAGE1 = 'Откуда вы собираетесь отправляться? Пишите через пробел: <улица> <здание> <город>.' \
+           ' Например: \'Московская 143 Саратов\'.'
+MESSAGE2 = 'Куда вы собираетесь отправляться? Пишите через пробел: <улица> <здание> <город>. ' \
+           'Например: \'Саратов Московская 143\'.'
+MESSAGE3 = 'Сколько времени для сборов вам понадобится. Напишите в минутах, например: \'12 мин\'.'
+MESSAGE4 = 'Напишите день(сегодня или завтра) и время ко скольки вам нужно быть на месте через' \
+           ' пробел без секунд: <день> <время> например: \'сегодня 21:40\'.'
+MESSAGE5 = 'Выберите ваш способ передвижения из списка: пешком, на велосипеде, на общественном' \
+           ' транспорте, на машине или на такси.'
+MESSAGE6 = 'Будильник заведён'
 
 
 def handle_dialog(req, res):
-    global address1, address2, time, transport, work, stage
+    global time, work, stage, coords1, coords2, delay, type
     user_id = req['session']['user_id']
     if req['session']['new']:
         res['response']['text'] = 'Здравствуйте, заведём будильник?'
-        res['response']['buttons'] = get_buttons(universal_buttons, yes_buttons)
+        res['response']['buttons'] = get_buttons([YES_BUTTONS[randint(0, len(YES_BUTTONS) - 1)]])
         return
 
-    if req['request']['original_utterance'].lower().strip() in yes_buttons and stage == 0:
-        res['response']['text'] = 'Откуда вы собираетесь отправляться?' \
-                                  'Пишите через пробел: <улица> <здание> <город>.' \
-                                  'Например: \"Московская 143 Саратов\".'
-        res['response']['buttons'] = get_buttons(universal_buttons, question_buttons)
-        stage += 1
+    if stage == 0:
+        if req['request']['original_utterance'].lower().strip() in YES_BUTTONS:
+            res['response']['text'] = MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage += 1
+        elif req['request']['original_utterance'].lower().strip() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE0
+            res['response']['buttons'] = get_buttons([YES_BUTTONS[randint(0, len(YES_BUTTONS) - 1)]])
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = HELP + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE0
+            res['response']['buttons'] = get_buttons(False)
         return
 
-    if stage == 1 and coords1:
-        address1 = req['request']['original_utterance'].strip()
-        res['response']['text'] = 'Куда вы собираетесь отправляться?' \
-                                  'Пишите через пробел: <улица> <здание> <город>.' \
-                                  'Например: \"Саратов Московская 143\".'
-        res['response']['buttons'] = get_suggests(user_id)
-        proof_describe2 = True
-        stage += 1
+    if stage == 1:
+        if existing_object(req['request']['original_utterance'].strip()):
+            coords1 = existing_object(req['request']['original_utterance'].strip())
+            res['response']['text'] = MESSAGE2
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE1
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        return
+
+    if stage == 2:
+        if existing_object(req['request']['original_utterance'].strip()):
+            coords2 = existing_object(req['request']['original_utterance'].strip())
+            res['response']['text'] = MESSAGE3
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE2
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE2
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        return
+
+    if stage == 3:
+        if check3(req['request']['original_utterance'].strip()):
+            delay = check3(req['request']['original_utterance'].strip())
+            res['response']['text'] = MESSAGE4
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE3
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE3
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        return
+
+    if stage == 4:
+        if check4(req['request']['original_utterance'].strip().lower):
+            time = check4(req['request']['original_utterance'].strip().lower)
+            res['response']['text'] = MESSAGE5
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS + TRANSPORT[::2])
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE4
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE4
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        return
+
+    if stage == 5:
+        if req['request']['original_utterance'].strip().lower() in TRANSPORT:
+            type = TRANSLATOR[req['request']['original_utterance'].strip().lower()]
+            res['response']['text'] = MESSAGE5
+            res['response']['buttons'] = get_buttons(False)
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE5
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS + TRANSPORT[::2])
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE5
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS + TRANSPORT[::2])
+        return
+
 
     elif proof_describe2 and not proof_describe3 and len(req['request']['original_utterance'].split()) == 3:
         address2 = req['request']['original_utterance'].strip()
@@ -168,25 +279,55 @@ def get_suggests(user_id):
     return suggests
 
 
-def get_buttons(univ, cur):
-    suggests = [
-        {'title': suggest, 'hide': False}
-        for suggest in list(map(lambda x: x[0].upper() + x[1:], univ + [cur[randint(0, len(cur) - 1)]]))
-    ]
+def get_buttons(cur):
+    if cur:
+        suggests = [
+            {'title': suggest, 'hide': True}
+            for suggest in list(map(lambda x: x[0].upper() + x[1:],
+                                    UNIVERSAL_BUTTONS + cur))
+        ]
+    else:
+        suggests = [
+            {'title': suggest, 'hide': True}
+            for suggest in list(map(lambda x: x[0].upper() + x[1:], UNIVERSAL_BUTTONS))
+        ]
     return suggests
 
 
 def existing_object(adress):
-    global coords1
     try:
         url = 'http://geocode-maps.yandex.ru/1.x?'
-        params = {'geocode': ','.join([ ''.join(adress[:2]), adress[2]]),
+        params = {'geocode': ','.join([''.join(adress[:2]), adress[2]]),
                   'apikey': '40d1649f-0493-4b70-98ba-98533de7710b',
                   'format': 'json'
                   }
         response = requests.get(url, params=params).json()
         ans = response['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos'].split()
         return ans
+    except Exception:
+        return None
+
+
+def check3(arg):
+    try:
+        return int(arg.split()[0])
+    except Exception:
+        return None
+
+
+def check4(arg):
+    try:
+        arg = arg.split()
+        today = datetime.date.today()
+        if arg[0] == 'сегодня':
+            return int(today.strftime('%d')), \
+                   (int(arg[1].split(':')[0]) * 60 + int(arg[1].split(':')[1]))
+        elif arg[0] == 'завтра':
+            tomorrow = today + datetime.timedelta(days=1)
+            return int(tomorrow.strftime('%d')), \
+                   (int(arg[1].split(':')[0]) * 60 + int(arg[1].split(':')[1]))
+        else:
+            return None
     except Exception:
         return None
 
