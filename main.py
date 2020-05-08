@@ -28,11 +28,11 @@ def main():
 
 
 work = False
-coords1 = False
-coords2 = False
-type = False
-delay = False
-time = False
+coords1 = None
+coords2 = None
+type = None
+delay = None
+time = None
 
 TRANSLATOR = {'пешком': 'pd', 'велосипед': 'bc', 'на велосипеде': 'bc',
               'общественный транспорт': 'mt', 'на общественном транспорте': 'mt',
@@ -124,7 +124,7 @@ def handle_dialog(req, res):
         return
 
     if stage == 3:
-        if check3(req['request']['original_utterance'].strip()):
+        if not (check3(req['request']['original_utterance'].strip()) is None):
             delay = check3(req['request']['original_utterance'].strip())
             res['response']['text'] = MESSAGE4
             res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
