@@ -1,11 +1,15 @@
 from flask import Flask, request
+from flask_ngrok import run_with_ngrok
+from bs4 import BeautifulSoup
+from random import randint
 import logging
+import requests
 import json
-import os
+import datetime
 
 
 app = Flask(__name__)
-
+run_with_ngrok(app)
 logging.basicConfig(level=logging.INFO)
 sessionStorage = {}
 @app.route('/post', methods=['POST'])
@@ -14,203 +18,239 @@ def main():
     response = {
         'session': request.json['session'],
         'version': request.json['version'],
-        'response': {}
+        'response': {
+            'end_session': False
+        }
     }
     handle_dialog(request.json, response)
     logging.info(f'Response:  {response!r}')
     return json.dumps(response)
 
 
-proof_describe = False
-proof_describe1 = False
-proof_describe2 = False
-proof_describe3 = False
-proof_describe4 = False
-proof_describe5 = False
 work = False
-address1 = ""
-address2 = ""
-time_to_pack = 0
-time = ""
-transport = ""
+coords1 = None
+coords2 = None
+type = None
+delay = None
+time = None
+
+TRANSLATOR = {'пешком': 'pd', 'велосипед': 'bc', 'на велосипеде': 'bc',
+              'общественный транспорт': 'mt', 'на общественном транспорте': 'mt',
+              'машина': 'auto', 'на машине': 'auto', 'такси': 'taxi', 'на такси': 'taxi'}
+
+TRANSPORT = ['пешком', 'велосипед', 'на велосипеде', 'общественный транспорт',
+             'на общественном транспорте', 'машина', 'на машине', 'такси', 'на такси']
+UNIVERSAL_BUTTONS = ['помощь']
+YES_BUTTONS = ['да', 'ок', 'давай', 'ладно', 'хорошо', 'го']
+QUESTION_BUTTONS = ['изменить']
+OFF_BUTTONS = ['отключить', 'выключить']
+
+HELP = 'Это приложение \'Умный будильник\', вам осталось только вбить данные, а будильник сам' \
+       ' позаботится о продолжительности вашего сна. Если вы уже его завели, то ждите, когда ' \
+       'он прозвенит, или отмените. Будильник предназначен для поездок внутри населённого пункта. '
+CHANGE = 'Все данные, что вы ввели обнулились. Начнём опрос сначала. '
+DONTUNDERSTAND = 'Извините, мы вас не поняли. '
+OFF = 'Будильник отключен. '
+
+MESSAGE0 = 'Давайте заведём будильник.'
+MESSAGE1 = 'Откуда вы собираетесь отправляться? Пишите через пробел: <улица> <здание> <город>.' \
+           ' Например: \'Московская 143 Саратов\'.'
+MESSAGE2 = 'Куда вы собираетесь отправляться? Пишите через пробел: <улица> <здание> <город>. ' \
+           'Например: \'Московская 143 Саратов\'.'
+MESSAGE3 = 'Сколько времени для сборов вам понадобится. Напишите в минутах, например: \'12 мин\'.'
+MESSAGE4 = 'Напишите день(сегодня или завтра) и время, к которому вам нужно быть на месте, через' \
+           ' пробел без секунд: <день> <время> например: \'сегодня 21:40\'.'
+MESSAGE5 = 'Выберите ваш способ передвижения из списка: пешком, на велосипеде, на общественном' \
+           ' транспорте, на машине или на такси.'
+MESSAGE6 = 'Будильник заведён.'
+MESSAGE7 = 'Ожидайте звонка.'
 
 
 def handle_dialog(req, res):
-    global proof_describe, proof_describe1, proof_describe2, proof_describe3, proof_describe4, address1, \
-        address2, time_to_pack, transport, work, time, proof_describe5
+    global time, work, stage, coords1, coords2, delay, type
     user_id = req['session']['user_id']
     if req['session']['new']:
-        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Помощь"]}
-        res['response']['text'] = '\"Включить будильник\" - начать использование программы. ' \
-                                  '\"Изменить\" - обнуление и замена данных. ' \
-                                  '\"Выключить будильник\" - прекратить использование программы. ' \
-                                  '\"Отменить ввод\" - если вы вводите данные, чтобы прекратить ввод. '
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-# sessionStorage[user_id] = {'suggests': ["Включить будильник", "Изменить", "Выключить будильник",
-#                                             "Помощь", "Отменить ввод"]}
-    if (req['request']['original_utterance'].lower().strip() == "включить будильник" and not proof_describe and
-            (not proof_describe4 and not proof_describe1 and not proof_describe2 and not proof_describe3 and
-             not proof_describe5)):
-        res['response']['text'] = "Сначала впишите нужные данные. " \
-                                  "Откуда вы собираетесь отправляться? " \
-                                  "Пишите через пробел: <город> <улица> <здание>. " \
-                                  "Например: \"Саратов Московская 143\". "\
-                                  "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить ввод\"(все данные обнулятся). "
-        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        proof_describe1 = True
+        res['response']['text'] = 'Здравствуйте, заведём будильник?'
+        res['response']['buttons'] = get_buttons([YES_BUTTONS[randint(0, len(YES_BUTTONS) - 1)]])
+        stage = 0
         return
 
-    elif proof_describe1 and not proof_describe2 and len(req['request']['original_utterance'].split()) == 3:
-        address1 = req['request']['original_utterance'].strip()
-        res['response']['text'] = "Впишите нужные данные. " \
-                                  "Куда вы собираетесь отправляться? " \
-                                  "Пишите через пробел: <город> <улица> <здание>. " \
-                                  "Например: \"Саратов Московская 143\". "\
-                                  "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить ввод\"(все данные обнулятся). "
-        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        proof_describe2 = True
-
-    elif proof_describe2 and not proof_describe3 and len(req['request']['original_utterance'].split()) == 3:
-        address2 = req['request']['original_utterance'].strip()
-        proof_describe3 = True
-        res['response']['text'] = "Впишите нужные данные. " \
-                                  "Сколько времени вам понадобится на сборы? " \
-                                  "Пишите в минутах. " \
-                                  "Например: \"5\". " \
-                                  "Если хотите прекратить ввод данных " \
-                                  "напишите \"Отменить ввод\"(все данные обнулятся). "
-        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-
-    elif proof_describe3 and not proof_describe4 and len(req['request']['original_utterance'].split()) == 1:
-        time_to_pack = req['request']['original_utterance'].strip()
-        proof_describe4 = True
-        res['response']['text'] = "Впишите нужные данные. " \
-                                  "Во сколько вам надо прибыть? " \
-                                  "Напишите точное время, например: \"8:00\". " \
-                                  "Если хотите прекратить ввод данных " \
-                                  "напишите \"Отменить ввод\"(все данные обнулятся)."
-        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-
-    elif proof_describe4 and not proof_describe5 and len(req['request']['original_utterance'].split()) == 1:
-        time = req['request']['original_utterance'].strip()
-        proof_describe5 = True
-        res['response']['text'] = "Впишите нужные данные. " \
-                                  "Какой способ передвижения вы выберете? " \
-                                  "Выберете любой из предложенных: велосипед, пешком, " \
-                                  "машина, общественный транспорт, такси. " \
-                                  "Например: \"общественный транспорт\". " \
-                                  "Если хотите прекратить ввод данных " \
-                                  "напишите \"Отменить ввод\"(все данные обнулятся)."
-        sessionStorage[user_id] = {'suggests': ["Машина", "Общественный транспорт", "Такси", "Пешком",
-                                                "Велосипед", "Помощь", "Отменить ввод"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-
-    elif (proof_describe5 and not transport and req['request']['original_utterance'].lower() in
-          ["машина", "общественный транспорт", "такси", "пешком", "велосипед"]):
-        transport = req['request']['original_utterance'].strip()
-        res['response']['text'] = "Будильник включен. Мы приняли. " \
-                                  f"Откуда: {address1}. " \
-                                  f"Куда: {address2}. " \
-                                  f"Время на сборы: {time_to_pack}. " \
-                                  f"Время прибытия: {time}. " \
-                                  f"Способ передвижения: {transport}. "
-        sessionStorage[user_id] = {'suggests': ["Изменить", "Выключить будильник", "Помощь"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        proof_describe = True
-        work = True
-        return
-
-    elif req['request']['original_utterance'].strip().lower() == "изменить":
-        res['response']['text'] = 'Ваши данные обнулились, будильник выключен. ' \
-                                  'После того как вы заполните все пунткы, будильник автоматически включится. ' \
-                                  "Впишите нужные данные. " \
-                                  "Откуда вы собираетесь отправляться? " \
-                                  "Пишите через пробел: <город> <улица> <здание>. " \
-                                  "Например: \"Саратов Московская 143\". " \
-                                  "Если хотите прекратить ввод данных, то " \
-                                  "напишите \"Отменить ввод\"(все данные обнулятся)."
-        work = False
-        proof_describe = False
-        proof_describe1 = True
-        proof_describe2 = False
-        proof_describe3 = False
-        proof_describe4 = False
-        proof_describe5 = False
-        transport = ""
-        sessionStorage[user_id] = {'suggests': ["Помощь", "Отменить ввод"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-
-    elif req['request']['original_utterance'].lower().strip() == "включить будильник" and proof_describe:
-        if not work:
-            res['response']['text'] = "Хорошо"
+    if stage == 0:
+        if req['request']['original_utterance'].lower().strip() in YES_BUTTONS:
+            res['response']['text'] = MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage += 1
+        elif req['request']['original_utterance'].lower().strip() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE0
+            res['response']['buttons'] = get_buttons([YES_BUTTONS[randint(0, len(YES_BUTTONS) - 1)]])
         else:
-            res['response']['text'] = "Уже рабоатет!"
-        work = True
-        sessionStorage[user_id] = {'suggests': ["Изменить", "Выключить будильник", "Помощь"]}
-        res['response']['buttons'] = get_suggests(user_id)
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE0
+            res['response']['buttons'] = get_buttons([YES_BUTTONS[randint(0, len(YES_BUTTONS) - 1)]])
         return
 
-    elif req['request']['original_utterance'].lower().strip() == "отменить ввод" and proof_describe1 and not transport:
-        res['response']['text'] = "Хорошо. " \
-                                  '\"Включить будильник\" - начать использование программы. ' \
-                                  '\"Изменить\" - обнуление и замена данных. ' \
-                                  '\"Выключить будильник\" - прекратить использование программы. ' \
-                                  '\"Отменить ввод\" - если вы вводите данные, чтобы прекратить ввод. '
-        proof_describe = False
-        proof_describe1 = False
-        proof_describe2 = False
-        proof_describe3 = False
-        proof_describe4 = False
-        proof_describe5 = False
-        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Помощь"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-
-    elif req['request']['original_utterance'].lower().strip() == "помощь":
-        res['response']['text'] = '\"Включить будильник\" - начать использование программы. ' \
-                                  '\"Изменить\" - обнуление и замена данных. ' \
-                                  '\"Выключить будильник\" - прекратить использование программы. ' \
-                                  '\"Отменить ввод\" - если вы вводите данные, чтобы прекратить ввод. '
-        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Изменить", "Выключить будильник",
-                                                "Помощь", "Отменить ввод"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-    elif req['request']['original_utterance'].lower().strip() == "выключить будильник":
-        if work:
-            res['response']['text'] = "Будильник выключен!"
+    if stage == 1:
+        coords1 = existing_object(req['request']['original_utterance'].strip())
+        if req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+        elif coords1:
+            res['response']['text'] = MESSAGE2
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+            stage += 1
         else:
-            res['response']['text'] = "Будильник уже выключен!"
-        sessionStorage[user_id] = {'suggests': ["Включить будильник", "Изменить", "Помощь"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        work = False
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE1
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
         return
+
+    if stage == 2:
+        coords2 = existing_object(req['request']['original_utterance'].strip())
+        if req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE2
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        elif coords2:
+            res['response']['text'] = MESSAGE3
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+            stage += 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE2
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        return
+
+    if stage == 3:
+        if not (check3(req['request']['original_utterance'].strip()) is None):
+            delay = check3(req['request']['original_utterance'].strip())
+            res['response']['text'] = MESSAGE4
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE3
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE3
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        return
+
+    if stage == 4:
+        if check4(req['request']['original_utterance'].strip().lower()):
+            time = check4(req['request']['original_utterance'].strip().lower)
+            res['response']['text'] = MESSAGE5
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS + TRANSPORT[::2])
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE4
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE4
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS)
+        return
+
+    if stage == 5:
+        if req['request']['original_utterance'].strip().lower() in TRANSPORT:
+            type = TRANSLATOR[req['request']['original_utterance'].strip().lower()]
+            res['response']['text'] = MESSAGE6
+            res['response']['buttons'] = \
+                get_buttons(QUESTION_BUTTONS + [OFF_BUTTONS[randint(0, len(OFF_BUTTONS) - 1)]])
+            stage += 1
+        elif req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE5
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS + TRANSPORT[::2])
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = DONTUNDERSTAND + MESSAGE5
+            res['response']['buttons'] = get_buttons(QUESTION_BUTTONS + TRANSPORT[::2])
+        return
+
+    if stage == 6:
+        if req['request']['original_utterance'].strip().lower() == 'помощь':
+            res['response']['text'] = HELP + MESSAGE7
+            res['response']['buttons'] = \
+                get_buttons(QUESTION_BUTTONS + [OFF_BUTTONS[randint(0, len(OFF_BUTTONS) - 1)]])
+        elif req['request']['original_utterance'].strip().lower() == 'изменить':
+            res['response']['text'] = CHANGE + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        elif req['request']['original_utterance'].strip().lower() in OFF_BUTTONS:
+            res['response']['text'] = OFF + MESSAGE1
+            res['response']['buttons'] = get_buttons(False)
+            stage = 1
+        else:
+            res['response']['text'] = MESSAGE7
+            res['response']['buttons'] = \
+                get_buttons(QUESTION_BUTTONS + [OFF_BUTTONS[randint(0, len(OFF_BUTTONS) - 1)]])
+        return
+
+
+def get_buttons(cur):
+    if cur:
+        suggests = [
+            {'title': suggest, 'hide': True}
+            for suggest in list(map(lambda x: x[0].upper() + x[1:],
+                                    UNIVERSAL_BUTTONS + cur))
+        ]
     else:
-        res['response']['text'] = "Извините, мы вас не поняли, нажмите \"Помошь\" если что-то не понятно"
-        sessionStorage[user_id] = {'suggests': ["Помощь"]}
-        res['response']['buttons'] = get_suggests(user_id)
-        return
-
-
-def get_suggests(user_id):
-    session = sessionStorage[user_id]
-    suggests = [
-        {'title': suggest, 'hide': True}
-        for suggest in session['suggests'][:7]
-    ]
+        suggests = [
+            {'title': suggest, 'hide': True}
+            for suggest in list(map(lambda x: x[0].upper() + x[1:], UNIVERSAL_BUTTONS))
+        ]
     return suggests
 
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+def existing_object(adress):
+    try:
+        url = 'http://geocode-maps.yandex.ru/1.x?'
+        params = {'geocode': ','.join([''.join(adress[:2]), adress[2]]),
+                  'apikey': '40d1649f-0493-4b70-98ba-98533de7710b',
+                  'format': 'json'
+                  }
+        response = requests.get(url, params=params).json()
+        ans1 = response['response']['GeoObjectCollection']['featureMember']
+        ans = ans1[0]['GeoObject']['Point']['pos'].split()
+        return ans
+    except Exception:
+        return None
+
+
+def check3(arg):
+    try:
+        return int(arg.split()[0])
+    except Exception:
+        return None
+
+
+def check4(arg):
+    try:
+        arg = arg.split()
+        assert (arg[0] in ['сегодня', 'завтра'] and 0 <= int(arg[1].split(':')[0]) <= 23 and
+                0 <= int(arg[1].split(':')[1]) <= 59)
+        today = datetime.date.today()
+        if arg[0] == 'сегодня':
+            return int(today.strftime('%d')), \
+                   (int(arg[1].split(':')[0]) * 60 + int(arg[1].split(':')[1]))
+        elif arg[0] == 'завтра':
+            tomorrow = today + datetime.timedelta(days=1)
+            return int(tomorrow.strftime('%d')), \
+                   (int(arg[1].split(':')[0]) * 60 + int(arg[1].split(':')[1]))
+    except Exception:
+        return None
+
+
+if __name__ == '__main__':
+    app.run()
