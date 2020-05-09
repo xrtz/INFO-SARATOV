@@ -6,7 +6,7 @@ import os
 
 
 app = Flask(__name__)
-run_with_ngrok(app)
+
 logging.basicConfig(level=logging.INFO)
 sessionStorage = {}
 @app.route('/post', methods=['POST'])
