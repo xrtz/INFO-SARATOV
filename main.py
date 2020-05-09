@@ -1,15 +1,14 @@
 from flask import Flask, request
-from flask_ngrok import run_with_ngrok
 from bs4 import BeautifulSoup
 from random import randint
 import logging
 import requests
 import json
 import datetime
+import os
 
 
 app = Flask(__name__)
-run_with_ngrok(app)
 logging.basicConfig(level=logging.INFO)
 sessionStorage = {}
 @app.route('/post', methods=['POST'])
@@ -252,5 +251,6 @@ def check4(arg):
         return None
 
 
-if __name__ == '__main__':
-    app.run()
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
