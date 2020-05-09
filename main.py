@@ -1,5 +1,4 @@
 from flask import Flask, request
-from flask_ngrok import run_with_ngrok
 import logging
 import json
 import os
