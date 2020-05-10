@@ -8,11 +8,15 @@ import datetime
 import os
 
 
+res = ""
+req = ""
+
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 sessionStorage = {}
 @app.route('/post', methods=['POST'])
 def main():
+    global res, req
     logging.info(f'Request: {request.json!r}')
     response = {
         'session': request.json['session'],
@@ -21,7 +25,9 @@ def main():
             'end_session': False
         }
     }
-    handle_dialog(request.json, response)
+    req = request.json
+    res = response
+    handle_dialog()
     logging.info(f'Response:  {response!r}')
     return json.dumps(response)
 
@@ -56,8 +62,8 @@ to_stay = False
 to_move = False
 
 
-def handle_dialog(req, res):
-    global saratov, attractions, to_eat, to_stay, to_move
+def handle_dialog():
+    global saratov, attractions, to_eat, to_stay, to_move, req, res
     user_id = req['session']['user_id']
     if saratov:
         Saratov(req, res)
@@ -68,22 +74,19 @@ def handle_dialog(req, res):
         return
     elif req['request']['original_utterance'].lower().strip() == "Саратов":
         saratov = True
-        Saratov(req, res)
+        Saratov()
         return
 
 
-def Saratov(req, res):
-    global saratov
-    res['response']['text'] = 'Саратов основан в 2030 году, наш мэр Володин, рядом есть волга, если хотите вернуться ' \
-                              'назад, то напишите "Назад"'
+def Saratov():
+    global req, res, saratov
     if req['request']['original_utterance'].lower().strip() == "назад":
         saratov = False
         res['response']['text'] = MAIN
         res['response']['buttons'] = get_buttons([MAIN_BUTTONS[randint(0, len(MAIN_BUTTONS) - 1)]])
     else:
-        res['response'][
-            'text'] = 'Саратов основан в 2030 году, наш мэр Володин, рядом есть волга, если хотите вернуться ' \
-                      'назад, то напишите "Назад"'
+        res['response']['text'] = 'Саратов основан в 2030 году, наш мэр Володин, рядом есть волга, если ' \
+                                  'хотите вернуться назад, то напишите "Назад"'
         res['response']['buttons'] = get_buttons([BACK_BUTTONS[randint(0, len(BACK_BUTTONS) - 1)]])
 
 
