@@ -66,13 +66,13 @@ def handle_dialog():
     global saratov, attractions, to_eat, to_stay, to_move, req, res
     user_id = req['session']['user_id']
     if saratov:
-        Saratov(req, res)
+        Saratov()
         return
     if req['session']['new']:
         res['response']['text'] = MAIN
         res['response']['buttons'] = get_buttons([MAIN_BUTTONS[randint(0, len(MAIN_BUTTONS) - 1)]])
         return
-    elif req['request']['original_utterance'].lower().strip() == "Саратов":
+    elif req['request']['original_utterance'].lower().strip() == "cаратов":
         saratov = True
         Saratov()
         return
