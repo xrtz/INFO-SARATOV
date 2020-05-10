@@ -6,6 +6,7 @@ import requests
 import json
 import datetime
 import os
+import time
 
 
 app = Flask(__name__)
@@ -31,7 +32,7 @@ coords1 = None
 coords2 = None
 type = None
 delay = None
-time = None
+time1 = None
 
 TRANSLATOR = {'пешком': 'pd', 'велосипед': 'bc', 'на велосипеде': 'bc',
               'общественный транспорт': 'mt', 'на общественном транспорте': 'mt',
@@ -66,7 +67,7 @@ MESSAGE7 = 'Ожидайте звонка.'
 
 
 def handle_dialog(req, res):
-    global time, work, stage, coords1, coords2, delay, type
+    global time1, work, stage, coords1, coords2, delay, type
     user_id = req['session']['user_id']
     if req['session']['new']:
         res['response']['text'] = 'Здравствуйте, заведём будильник?'
@@ -75,6 +76,7 @@ def handle_dialog(req, res):
         return
 
     if stage == 0:
+        time.sleep(10)
         if req['request']['original_utterance'].lower().strip() in YES_BUTTONS:
             res['response']['text'] = MESSAGE1
             res['response']['buttons'] = get_buttons(False)
@@ -142,7 +144,7 @@ def handle_dialog(req, res):
 
     if stage == 4:
         if check4(req['request']['original_utterance'].strip().lower()):
-            time = check4(req['request']['original_utterance'].strip().lower)
+            time1 = check4(req['request']['original_utterance'].strip().lower)
             res['response']['text'] = MESSAGE5
             res['response']['buttons'] = get_buttons(QUESTION_BUTTONS + TRANSPORT[::2])
             stage += 1
