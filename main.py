@@ -8,15 +8,11 @@ import datetime
 import os
 
 
-res = ""
-req = ""
-
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 sessionStorage = {}
 @app.route('/post', methods=['POST'])
 def main():
-    global res, req
     logging.info(f'Request: {request.json!r}')
     response = {
         'session': request.json['session'],
@@ -25,9 +21,7 @@ def main():
             'end_session': False
         }
     }
-    req = request.json
-    res = response
-    handle_dialog()
+    handle_dialog(request.json, response)
     logging.info(f'Response:  {response!r}')
     return json.dumps(response)
 
@@ -43,6 +37,7 @@ YES_BUTTONS = ['да', 'ок', 'давай', 'ладно', 'хорошо', 'го
 OFF_BUTTONS = ['отключить', 'выключить']
 BACK_BUTTONS = ["назад"]
 MAIN_BUTTONS = ["Саратов", "Достопримичательности", "Поесть", "Отели и хостелы", "Сколько ехать"]
+ATTRACTIONS_BUTTONS = ["Парк победы", "Проспект кирова", "Набережная космонавтов", "Назад"]
 
 HELP = ''
 MAIN = 'Здравствуйте, мы хотим вам рассказать о Саратове. \n' \
@@ -53,33 +48,96 @@ MAIN = 'Здравствуйте, мы хотим вам рассказать о
                                   'Напишите "Отели и хостелы", если хотите узнать где можно переночевать. \n' \
                                   'Напишите "Сколько ехать", если хотите узнать сколько времени займет добраться ' \
                                   'из вашего города в наш'
+SARATOV = "Саратов основали в 2030 году, мэр - собянин, если хотите вернуться назад, то напишите 'Назад'"
+ATTRACTIONS = "По нашему мнение в саратове самые главные достопримечательности это:" \
+              "Парк победы \n" \
+              "Проспект кирова \n" \
+              "Набережная космонавтов, если хотите вернуться назад, то напишите 'Назад'"
+PARK_POBEDA = "здесь есть военная техника, если хотите вернуться назад, то напишите 'Назад'"
+PROSPECT_KIROVA = "тут можно погулять, если хотите вернуться назад, то напишите 'Назад'"
+NABEREJNAYA_KOSMONAVTOV = "тут можно погулять около реки, если хотите вернуться назад, то напишите 'Назад'"
+
+stage = 0
+into = False
+last_text = ""
 
 
-saratov = False
-attractions = False
-to_eat = False
-to_stay = False
-to_move = False
-
-
-def handle_dialog():
-    global saratov, attractions, to_eat, to_stay, to_move, req, res
+def handle_dialog(req, res):
+    global stage, into, last_text
     user_id = req['session']['user_id']
-    if saratov:
-        Saratov()
+    if stage == 1:
+        if req['request']['original_utterance'].lower().strip() == "назад":
+            res['response']['text'] = MAIN
+            res['response']['buttons'] = get_buttons([MAIN_BUTTONS[randint(0, len(MAIN_BUTTONS) - 1)]])
+            stage = 0
+            return
+        else:
+            res['response']['text'] = HELP
+            res['response']['buttons'] = get_buttons([BACK_BUTTONS[randint(0, len(BACK_BUTTONS) - 1)]])
+            return
+
+
+    elif stage == 2:
+        if into and req['request']['original_utterance'].lower().strip() == "назад":
+            res['response']['text'] = ATTRACTIONS
+            into = False
+            res['response']['buttons'] = get_buttons([ATTRACTIONS_BUTTONS[randint(0, len(ATTRACTIONS_BUTTONS) - 1)]])
+            return
+        elif into:
+            res['response']['text'] = last_text
+            res['response']['buttons'] = get_buttons([BACK_BUTTONS[randint(0, len(BACK_BUTTONS) - 1)]])
+        elif req['request']['original_utterance'].lower().strip() == "парк победы":
+            res['response']['text'] = PARK_POBEDA
+            last_text = PARK_POBEDA
+            into = True
+            res['response']['buttons'] = get_buttons([BACK_BUTTONS[randint(0, len(BACK_BUTTONS) - 1)]])
+            return
+        elif req['request']['original_utterance'].lower().strip() == "проспект кирова":
+            res['response']['text'] = PROSPECT_KIROVA
+            last_text = PROSPECT_KIROVA
+            into = True
+            res['response']['buttons'] = get_buttons([BACK_BUTTONS[randint(0, len(BACK_BUTTONS) - 1)]])
+            return
+        elif req['request']['original_utterance'].lower().strip() == "набережная космонавтов":
+            res['response']['text'] = NABEREJNAYA_KOSMONAVTOV
+            last_text = NABEREJNAYA_KOSMONAVTOV
+            into = True
+            res['response']['buttons'] = get_buttons([BACK_BUTTONS[randint(0, len(BACK_BUTTONS) - 1)]])
+            return
+        elif req['request']['original_utterance'].lower().strip() == "назад":
+            res['response']['text'] = MAIN
+            res['response']['buttons'] = get_buttons([MAIN_BUTTONS[randint(0, len(MAIN_BUTTONS) - 1)]])
+            stage = 0
+            return
+        else:
+            res['response']['text'] = ATTRACTIONS
+            res['response']['buttons'] = get_buttons([ATTRACTIONS_BUTTONS[randint(0, len(ATTRACTIONS_BUTTONS) - 1)]])
+            return
+
+
+
+
+
+
+
+    elif req['request']['original_utterance'].lower().strip() == "cаратов":
+        stage = 1
+        res['response']['text'] = SARATOV
+        res['response']['buttons'] = get_buttons([BACK_BUTTONS[randint(0, len(BACK_BUTTONS) - 1)]])
         return
-    if req['session']['new']:
+    elif req['request']['original_utterance'].lower().strip() == "достопримичательности":
+        stage = 2
+        res['response']['text'] = ATTRACTIONS
+        res['response']['buttons'] = get_buttons([ATTRACTIONS_BUTTONS[randint(0, len(ATTRACTIONS_BUTTONS) - 1)]])
+        return
+    elif req['session']['new']:
         res['response']['text'] = MAIN
         res['response']['buttons'] = get_buttons([MAIN_BUTTONS[randint(0, len(MAIN_BUTTONS) - 1)]])
         return
-    elif req['request']['original_utterance'].lower().strip() == "cаратов":
-        saratov = True
-        Saratov()
-        return
 
 
-def Saratov():
-    global req, res, saratov
+def Saratov(req, res):
+    global saratov
     if req['request']['original_utterance'].lower().strip() == "назад":
         saratov = False
         res['response']['text'] = MAIN
