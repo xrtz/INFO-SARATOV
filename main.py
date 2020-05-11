@@ -79,6 +79,7 @@ into = False
 last_text = ""
 
 
+
 def handle_dialog(req, res):
     global stage, into, last_text
     user_id = req['session']['user_id']
