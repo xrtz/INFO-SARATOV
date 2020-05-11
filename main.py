@@ -198,7 +198,7 @@ def handle_dialog(req, res):
             stage = 0
             return
         else:
-            res['response']['text'] = HOTEL
+            res['response']['text'] = TIME_
             res['response']['buttons'] = get_buttons(BACK_BUTTONS)
             return
     elif req['request']['original_utterance'].lower().strip() == "cаратов":
@@ -230,7 +230,10 @@ def handle_dialog(req, res):
         res['response']['text'] = MAIN
         res['response']['buttons'] = get_buttons(MAIN_BUTTONS)
         return
-
+    else:
+        res['response']['text'] = MAIN
+        res['response']['buttons'] = get_buttons(MAIN_BUTTONS)
+        return
 
 def get_buttons(cur):
     if cur:
