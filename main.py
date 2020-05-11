@@ -77,12 +77,10 @@ NABEREJNAYA_KOSMONAVTOV = "Тут можно погулять около рек�
 MAIN_PHOTO_SARATOV = "1652229/9e3b6f2c648a56c4988d"
 
 stage = 0
-into = False
-last_text = ""
 
 
 def handle_dialog(req, res):
-    global stage, into, last_text
+    global stage
     user_id = req['session']['user_id']
     if stage == 1:
         if req['request']['original_utterance'].lower().strip() == "назад":
@@ -95,32 +93,17 @@ def handle_dialog(req, res):
             res['response']['buttons'] = get_buttons(BACK_BUTTONS)
             return
     elif stage == 2:
-        if into and req['request']['original_utterance'].lower().strip() == "назад":
-            res['response']['text'] = ATTRACTIONS
-            into = False
-            res['response']['buttons'] = get_buttons(ATTRACTIONS_BUTTONS)
-            return
-        elif into:
-            res['response']['text'] = last_text
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
-            return
-        elif req['request']['original_utterance'].lower().strip() == "парк победы":
+        if req['request']['original_utterance'].lower().strip() == "парк победы":
             res['response']['text'] = PARK_POBEDA
-            last_text = PARK_POBEDA
-            into = True
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['buttons'] = get_buttons(ATTRACTIONS_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() == "проспект кирова":
             res['response']['text'] = PROSPECT_KIROVA
-            last_text = PROSPECT_KIROVA
-            into = True
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['buttons'] = get_buttons(ATTRACTIONS_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() == "набережная космонавтов":
             res['response']['text'] = NABEREJNAYA_KOSMONAVTOV
-            last_text = NABEREJNAYA_KOSMONAVTOV
-            into = True
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['buttons'] = get_buttons(ATTRACTIONS_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() == "назад":
             res['response']['text'] = MAIN
@@ -132,26 +115,13 @@ def handle_dialog(req, res):
             res['response']['buttons'] = get_buttons(ATTRACTIONS_BUTTONS)
             return
     elif stage == 3:
-        if into and req['request']['original_utterance'].lower().strip() == "назад":
-            res['response']['text'] = TO_EAT
-            into = False
-            res['response']['buttons'] = get_buttons(TO_EAT_BUTTONS)
-            return
-        elif into:
-            res['response']['text'] = last_text
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
-            return
-        elif req['request']['original_utterance'].lower().strip() == "узбечка":
+        if req['request']['original_utterance'].lower().strip() == "узбечка":
             res['response']['text'] = YSBECHKA
-            last_text = YSBECHKA
-            into = True
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['buttons'] = get_buttons(TO_EAT_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() == "soho":
             res['response']['text'] = SOHO
-            last_text = SOHO
-            into = True
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['buttons'] = get_buttons(TO_EAT_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() == "назад":
             res['response']['text'] = MAIN
@@ -163,26 +133,13 @@ def handle_dialog(req, res):
             res['response']['buttons'] = get_buttons(TO_EAT_BUTTONS)
             return
     elif stage == 4:
-        if into and req['request']['original_utterance'].lower().strip() == "назад":
-            res['response']['text'] = HOTEL
-            into = False
-            res['response']['buttons'] = get_buttons(HOTEL_BUTTONS)
-            return
-        elif into:
-            res['response']['text'] = last_text
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
-            return
-        elif req['request']['original_utterance'].lower().strip() == "вишневая гора":
+        if req['request']['original_utterance'].lower().strip() == "вишневая гора":
             res['response']['text'] = VISHNEVAYA_GORA
-            last_text = VISHNEVAYA_GORA
-            into = True
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['buttons'] = get_buttons(HOTEL_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() == "wild west":
             res['response']['text'] = WILD_WEST
-            last_text = WILD_WEST
-            into = True
-            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['buttons'] = get_buttons(HOTEL_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() == "назад":
             res['response']['text'] = MAIN
