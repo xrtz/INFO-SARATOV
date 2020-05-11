@@ -86,7 +86,6 @@ def handle_dialog(req, res):
     user_id = req['session']['user_id']
     if stage == 1:
         if req['request']['original_utterance'].lower().strip() == "назад":
-            res['response']['card']['image_id'] = MAIN_PHOTO_SARATOV
             res['response']['text'] = MAIN
             res['response']['buttons'] = get_buttons(MAIN_BUTTONS)
             stage = 0
@@ -233,8 +232,11 @@ def handle_dialog(req, res):
         res['response']['text'] = TIME_
         res['response']['buttons'] = get_buttons(BACK_BUTTONS)
         return
+    elif req['session']['new']:
+        res['response']['text'] = MAIN
+        res['response']['buttons'] = get_buttons(MAIN_BUTTONS)
+        return
     else:
-        res['response']['card']['image_id'] = MAIN_PHOTO_SARATOV
         res['response']['text'] = MAIN
         res['response']['buttons'] = get_buttons(MAIN_BUTTONS)
         return
