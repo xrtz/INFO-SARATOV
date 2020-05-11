@@ -201,7 +201,7 @@ def handle_dialog(req, res):
             res['response']['text'] = TIME_
             res['response']['buttons'] = get_buttons(BACK_BUTTONS)
             return
-    elif req['request']['original_utterance'].lower().strip() == "cаратов":
+    elif req['request']['original_utterance'].lower().strip() == "саратов":
         stage = 1
         res['response']['text'] = SARATOV
         res['response']['buttons'] = get_buttons(BACK_BUTTONS)
@@ -216,12 +216,12 @@ def handle_dialog(req, res):
         res['response']['text'] = TO_EAT
         res['response']['buttons'] = get_buttons(TO_EAT_BUTTONS)
         return
-    elif req['request']['original_utterance'].lower().strip() == "поесть":
+    elif req['request']['original_utterance'].lower().strip() == "отели и хостелы":
         stage = 4
         res['response']['text'] = HOTEL
         res['response']['buttons'] = get_buttons(HOTEL_BUTTONS)
         return
-    elif req['request']['original_utterance'].lower().strip() == "cколько ехать":
+    elif req['request']['original_utterance'].lower().strip() == "сколько ехать":
         stage = 5
         res['response']['text'] = TIME_
         res['response']['buttons'] = get_buttons(BACK_BUTTONS)
