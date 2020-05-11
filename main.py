@@ -89,7 +89,7 @@ def handle_dialog(req, res):
             stage = 0
             return
         else:
-            res['response']['text'] = HELP
+            res['response']['text'] = SARATOV
             res['response']['buttons'] = get_buttons(BACK_BUTTONS)
             return
     elif stage == 2:
