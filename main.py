@@ -237,7 +237,7 @@ def handle_dialog(req, res):
             return
         elif (req['request']['original_utterance'].lower().strip() in ["журавли (памятник)",
                                                                        "саратовская консерватория"]):
-            name = req['request']['original_utterance'].lower().strip()[0] + \
+            name = req['request']['original_utterance'].lower().strip()[0].upper() + \
                    req['request']['original_utterance'].lower().strip()[1:]
             res['response']['text'] = f"{name}. \n" + FORM
             last_text = f"{name}"
@@ -286,7 +286,7 @@ def handle_dialog(req, res):
             res['response']['buttons'] = get_buttons(FORM_BUTTONS)
             return
         elif req['request']['original_utterance'].lower().strip() in ["узбечка", "soho", "панормама"]:
-            name = req['request']['original_utterance'].lower().strip()[0] + \
+            name = req['request']['original_utterance'].lower().strip()[0].upper() + \
                    req['request']['original_utterance'].lower().strip()[1:]
             res['response']['text'] = f"{name}. \n" + FORM
             last_text = f"{name}"
