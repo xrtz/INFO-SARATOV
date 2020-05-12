@@ -1,7 +1,6 @@
 from flask import Flask, request
-from bs4 import BeautifulSoup
-from p import parsing
 from flask_ngrok import run_with_ngrok
+from d import get_distance
 import logging
 import requests
 import json
@@ -26,6 +25,7 @@ def main():
     return json.dumps(response)
 
 
+# заготовки кнопок
 BACK_BUTTONS = ["Меню"]
 MAIN_BUTTONS = ["Саратов", "Достопримечательности", "Поесть", "Отели и хостелы", "Сколько ехать"]
 ATTRACTIONS_BUTTONS = ["Журавли (памятник)", "Саратовская консерватория", "Храм «Утоли мои печали»", "Меню"]
@@ -33,6 +33,9 @@ TO_EAT_BUTTONS = ["Узбечка", "Soho", "Панорама", "Меню"]
 HOTEL_BUTTONS = ["Вишневая гора", "Wild West", "Бутик-Отель Абсолют", "Отель Богемия на Вавилова", "Меню"]
 SARATOV_BUTTONS = ["Информация про Саратов", "Фотография", "Меню"]
 FORM_BUTTONS = ["Информация", "Фотография", "Местоположение", "Назад"]
+
+
+# некоторая информация об объектах
 gps = {"Журавли (памятник)": 'Парк Победы', "Саратовская консерватория": "просп. Кирова, 1",
        "Узбечка": "ул. Соколовая 10/16",
        "Soho": "ул. Октябрьская 5",
@@ -133,6 +136,8 @@ info = {'Саратов': "Саратов — город на юго-восто�
                                "каналами. Гостям предоставляют халаты и тапочки."
         }
 
+
+# заготовки частоиспользуемых фраз
 MAIN = 'Мы хотим вам рассказать о Саратове. \n ' \
        'Напишите: \n ' \
        '"Саратов" - если хотите информацию про Саратов, \n' \
@@ -159,21 +164,26 @@ TO_EAT = "По нашему мнению в Саратове самые лучш
 HOTEL = "По нашему мнению в Саратове самые основные отели и хостелы это:\n" \
         "Вишневая гора \n" \
         "Wild West. \nЕсли хотите вернуться в меню, то напишите 'Меню'"
-TIME_ = "Чтобы узнать сколько времени займет путешевствие от вашего города до Саратова, напишите город или" \
-        " адрес, откуда вы планируете отправляться на машине. \nЕсли хотите вернуться в меню, то напишите 'Меню'"
+TIME_ = "Чтобы узнать, насколько далеко до Саратова, напишите город или" \
+        " адрес, откуда вы планируете отправляться. \nЕсли хотите вернуться в меню, то напишите 'Меню'"
 FORM = "Напишите: \n" \
           "'Информация' - если хотите узнать информацию про этот объект, \n" \
           "'Фотография' - если хотите увидеть фотографию этого объекта,\n" \
           "'Местоположение' - если хотите узнать где это находится." \
           "\nЕсли хотите вернуться назад, то напишите 'Назад'"
+
+
+# важные переменные, следящие за ходом диалога
 stage = 0
 into = False
 last_text = ""
 
 
+# функция формирующая ответы
 def handle_dialog(req, res):
     global stage, into, last_text
     user_id = req['session']['user_id']
+    # саратов
     if stage == 1:
         if req['request']['original_utterance'].lower().strip() == "меню":
             res['response']['text'] = MAIN
@@ -195,6 +205,7 @@ def handle_dialog(req, res):
             res['response']['text'] = SARATOV
             res['response']['buttons'] = get_buttons(SARATOV_BUTTONS)
             return
+    # достопримечательности
     elif stage == 2:
         if into and req['request']['original_utterance'].lower().strip() == "назад":
             res['response']['text'] = ATTRACTIONS
@@ -244,6 +255,7 @@ def handle_dialog(req, res):
             res['response']['text'] = ATTRACTIONS
             res['response']['buttons'] = get_buttons(ATTRACTIONS_BUTTONS)
             return
+    # поесть
     elif stage == 3:
         if into and req['request']['original_utterance'].lower().strip() == "назад":
             res['response']['text'] = TO_EAT
@@ -286,6 +298,7 @@ def handle_dialog(req, res):
             res['response']['text'] = TO_EAT
             res['response']['buttons'] = get_buttons(TO_EAT_BUTTONS)
             return
+    # отели и хостелы
     elif stage == 4:
         if into and req['request']['original_utterance'].lower().strip() == "назад":
             res['response']['text'] = HOTEL
@@ -344,8 +357,10 @@ def handle_dialog(req, res):
             res['response']['text'] = HOTEL
             res['response']['buttons'] = get_buttons(HOTEL_BUTTONS)
             return
+    # сколько ехать
     elif stage == 5:
         coords1 = existing_object(req['request']['original_utterance'].lower().strip())
+        distance = get_distance(coords1, coords2)
         if req['request']['original_utterance'].lower().strip() == "меню":
             res['response']['text'] = MAIN
             res['response']['buttons'] = get_buttons(MAIN_BUTTONS)
@@ -356,13 +371,8 @@ def handle_dialog(req, res):
             res['response']['buttons'] = get_buttons(BACK_BUTTONS)
             return
         elif not (coords1 is None):
-            time = parsing(coords1, coords2, 'auto')
-            if time:
-                res['response']['text'] = 'Предполагаемое время пути: ' + time + '.'
-                res['response']['buttons'] = get_buttons(BACK_BUTTONS)
-            else:
-                res['response']['text'] = 'Произошла ошибка.'
-                res['response']['buttons'] = get_buttons(BACK_BUTTONS)
+            res['response']['text'] = 'До Саратова ' + str(int(distance)) + 'км.'
+            res['response']['buttons'] = get_buttons(BACK_BUTTONS)
             return
         else:
             res['response']['text'] = TIME_
@@ -404,6 +414,7 @@ def handle_dialog(req, res):
 
 
 def get_buttons(cur):
+    # функция, дающая кнопки по их заголовкам
     suggests = [
         {'title': suggest, 'hide': True}
         for suggest in list(map(lambda x: x[0].upper() + x[1:], cur))]
@@ -411,6 +422,7 @@ def get_buttons(cur):
 
 
 def existing_object(adress):
+    # функция, находящая координаты объекта, если он существует
     try:
         url = 'http://geocode-maps.yandex.ru/1.x?'
         params = {'geocode': adress,
@@ -425,6 +437,7 @@ def existing_object(adress):
         return None
 
 
+# координаты Саратова
 coords2 = existing_object('Саратов')
 if __name__ == '__main__':
     app.run()
